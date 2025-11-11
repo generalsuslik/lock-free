@@ -70,9 +70,9 @@ public:
 private:
     static constexpr size_t cache_line_size = std::hardware_destructive_interference_size;
 
-    struct Node {
-        alignas(cache_line_size) std::atomic<size_t> generation;
-        alignas(cache_line_size) T value;
+    struct alignas(cache_line_size) Node {
+        std::atomic<size_t> generation;
+        T value;
     };
 
     std::vector<Node> buffer_;
