@@ -1,4 +1,4 @@
-add_library(mpmc
+add_library(mpmc_bounded
         mpmc_bounded.cpp
 )
 

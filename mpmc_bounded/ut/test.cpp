@@ -2,7 +2,7 @@
 // Created by General Suslik on 03.11.2025.
 //
 
-#include "mpmc/mpmc_bounded.h"
+#include "mpmc_bounded/mpmc_bounded.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -22,31 +22,30 @@ TEST_CASE("Enqueue") {
 }
 
 TEST_CASE("Dequeue") {
+    int x;
     MPMCBoundedQueue<int> queue{2};
-    REQUIRE_FALSE(queue.Dequeue().has_value());
-    REQUIRE_FALSE(queue.Dequeue().has_value());
+    REQUIRE_FALSE(queue.Dequeue(x));
+    REQUIRE_FALSE(queue.Dequeue(x));
 }
 
 TEST_CASE("EnqueueDequeue") {
     MPMCBoundedQueue<int> queue{2};
     REQUIRE(queue.Enqueue(1));
-    auto val = queue.Dequeue();
-    REQUIRE(val.has_value());
-    REQUIRE(val.value() == 1);
-    REQUIRE_FALSE(queue.Dequeue().has_value());
+    int val;
+    REQUIRE(queue.Dequeue(val));
+    REQUIRE(val == 1);
+    REQUIRE_FALSE(queue.Dequeue(val));
 
     REQUIRE(queue.Enqueue(2));
     REQUIRE(queue.Enqueue(3));
     REQUIRE_FALSE(queue.Enqueue(4));
 
-    val = queue.Dequeue();
-    REQUIRE(val.has_value());
-    REQUIRE(val.value() == 2);
-    val = queue.Dequeue();
-    REQUIRE(val.has_value());
+    REQUIRE(queue.Dequeue(val));
+    REQUIRE(val == 2);
+    REQUIRE(queue.Dequeue(val));
     REQUIRE(val == 3);
 
-    REQUIRE_FALSE(queue.Dequeue().has_value());
+    REQUIRE_FALSE(queue.Dequeue(val));
 }
 
 TEST_CASE("NoSpuriousFails") {
@@ -69,8 +68,8 @@ TEST_CASE("NoSpuriousFails") {
 
     for (auto i = 0; i < kNumThreads; ++i) {
         threads.emplace_back([&] {
-            for (auto _ : kRange) {
-                counter -= queue.Dequeue().has_value();
+            for (auto x : kRange) {
+                counter -= queue.Dequeue(x);
             }
         });
     }
@@ -97,25 +96,21 @@ TEST_CASE("NoQueueLock") {
     }
     for (auto i = 0; i < kNumConsumers; ++i) {
         threads.emplace_back([&] {
-            for (auto _ : kRange) {
-                if (auto x = queue.Dequeue(); x.has_value()) {
-                    --results[*x];
+            for (auto x : kRange) {
+                if (queue.Dequeue(x)) {
+                    --results[x];
                 }
             }
         });
     }
     threads.clear();
 
-    for (;;) {
-        auto val = queue.Dequeue();
-        if (!val.has_value()) {
-            break;
-        }
-        --results[*val];
+    int k;
+    while (queue.Dequeue(k)) {
+        --results[k];
     }
     REQUIRE(std::ranges::all_of(results, [](const auto& a) { return a == 0; }));
     REQUIRE(queue.Enqueue(0));
-    auto k = queue.Dequeue();
-    REQUIRE(k.has_value());
-    REQUIRE(*k == 0);
+    REQUIRE(queue.Dequeue(k));
+    REQUIRE(k == 0);
 }

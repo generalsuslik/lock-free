@@ -3,4 +3,5 @@ project(lock_free)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_subdirectory(mpmc)
+add_subdirectory(mpmc_bounded)
+add_subdirectory(spsc_bounded)

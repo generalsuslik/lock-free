@@ -6,7 +6,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <optional>
 #include <thread>
 #include <vector>
 
@@ -51,33 +50,35 @@ public:
         }
     }
 
-    std::optional<T> Dequeue() {
+    bool Dequeue(T& val) {
         for (;;) {
             size_t head = head_pos_.load(std::memory_order_relaxed);
             auto& node = buffer_[head & buffer_mask_];
             const int64_t diff = node.generation.load(std::memory_order_acquire) - (head + 1);
             if (diff < 0) {
-                return std::nullopt;
+                return false;
             }
 
             if (diff == 0 && head_pos_.compare_exchange_weak(head, head + 1)) {
-                auto val = std::move(node.value);
+                val = std::move(node.value);
                 node.generation.store(head + capacity_, std::memory_order_release);
-                return val;
+                return true;
             }
         }
     }
 
 private:
+    static constexpr size_t cache_line_size = std::hardware_destructive_interference_size;
+
     struct Node {
-        alignas(std::hardware_destructive_interference_size) std::atomic<size_t> generation;
-        alignas(std::hardware_destructive_interference_size) T value;
+        alignas(cache_line_size) std::atomic<size_t> generation;
+        alignas(cache_line_size) T value;
     };
 
     std::vector<Node> buffer_;
     const size_t buffer_mask_;
     const size_t capacity_;
 
-    std::atomic<size_t> tail_pos_;
-    std::atomic<size_t> head_pos_;
+    alignas(cache_line_size) std::atomic<size_t> tail_pos_;
+    alignas(cache_line_size) std::atomic<size_t> head_pos_;
 };
